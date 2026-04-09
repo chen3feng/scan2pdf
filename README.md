@@ -122,6 +122,58 @@ python -m scan2pdf book.pdf --keep-temp
 | `--keep-temp` | off | Keep temporary files for debugging |
 | `-v, --verbose` | off | Increase verbosity (`-v` INFO, `-vv` DEBUG) |
 
+## Development
+
+### Setup
+
+```bash
+# Clone and install in editable mode
+git clone https://github.com/chen3feng/scan2pdf.git
+cd scan2pdf
+pip install -e ".[fast]"
+
+# Install dev dependencies
+pip install ruff pytest
+```
+
+### Code Style
+
+This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting:
+
+```bash
+# Check for lint errors
+ruff check .
+
+# Auto-fix lint errors
+ruff check . --fix
+
+# Check formatting
+ruff format --check .
+
+# Auto-format code
+ruff format .
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run a specific test file
+pytest tests/test_text_cleaner.py -v
+
+# Run tests with short traceback
+pytest tests/ --tb=short
+```
+
+### CI
+
+Every push and pull request to `master` triggers [GitHub Actions](.github/workflows/ci.yml):
+
+1. **Lint** — `ruff check` + `ruff format --check`
+2. **Test** — `pytest` across Python 3.10 / 3.11 / 3.12 / 3.13
+
 ## Architecture
 
 ```

@@ -122,6 +122,58 @@ python -m scan2pdf book.pdf --keep-temp
 | `--keep-temp` | 关闭 | 保留临时文件以便调试 |
 | `-v, --verbose` | 关闭 | 增加输出详细程度（`-v` INFO，`-vv` DEBUG） |
 
+## 开发与测试
+
+### 环境搭建
+
+```bash
+# 克隆并以可编辑模式安装
+git clone https://github.com/chen3feng/scan2pdf.git
+cd scan2pdf
+pip install -e ".[fast]"
+
+# 安装开发依赖
+pip install ruff pytest
+```
+
+### 代码风格
+
+本项目使用 [Ruff](https://docs.astral.sh/ruff/) 进行代码检查和格式化：
+
+```bash
+# 检查 lint 错误
+ruff check .
+
+# 自动修复 lint 错误
+ruff check . --fix
+
+# 检查代码格式
+ruff format --check .
+
+# 自动格式化代码
+ruff format .
+```
+
+### 运行测试
+
+```bash
+# 运行全部测试
+pytest tests/ -v
+
+# 运行指定测试文件
+pytest tests/test_text_cleaner.py -v
+
+# 简短错误输出
+pytest tests/ --tb=short
+```
+
+### 持续集成
+
+每次向 `master` 分支 push 或提交 Pull Request 时，会自动触发 [GitHub Actions](.github/workflows/ci.yml)：
+
+1. **Lint** — `ruff check` + `ruff format --check`
+2. **Test** — 在 Python 3.10 / 3.11 / 3.12 / 3.13 上运行 `pytest`
+
 ## 架构
 
 ```
