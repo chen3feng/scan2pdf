@@ -49,6 +49,7 @@
 ## 前置要求
 
 - **Python** ≥ 3.10
+- **uv** — [安装指南](https://docs.astral.sh/uv/getting-started/installation/)（`curl -LsSf https://astral.sh/uv/install.sh | sh`）
 - **Tesseract OCR** — [安装指南](https://github.com/tesseract-ocr/tesseract)
 - **Poppler**（提供 `pdftoppm`）— [Windows](https://github.com/oschwartz10612/poppler-windows/releases)、[macOS](https://formulae.brew.sh/formula/poppler)（`brew install poppler`）、[Linux](https://poppler.freedesktop.org/)（`apt install poppler-utils`）
 
@@ -59,11 +60,11 @@
 git clone <repo-url>
 cd scan2pdf
 
-# 安装依赖
-pip install -r requirements.txt
+# 安装依赖（包括开发工具）
+uv sync
 
-# 或作为包安装
-pip install .
+# 或安装可选的快速渲染依赖
+uv sync --extra fast
 ```
 
 ## 使用方法
@@ -72,37 +73,37 @@ pip install .
 
 ```bash
 # 转换整本书（输出：book-text.pdf）
-python -m scan2pdf book.pdf
+uv run scan2pdf book.pdf
 
 # 指定输出文件
-python -m scan2pdf book.pdf -o output.pdf
+uv run scan2pdf book.pdf -o output.pdf
 ```
 
 ### 快速测试
 
 ```bash
 # 只转换第 3 到 10 页
-python -m scan2pdf book.pdf -n 3-10
+uv run scan2pdf book.pdf -n 3-10
 
 # 转换指定页面
-python -m scan2pdf book.pdf -n 1,5,10-20
+uv run scan2pdf book.pdf -n 1,5,10-20
 ```
 
 ### 高级选项
 
 ```bash
 # 自定义封面页、语言和并发数
-python -m scan2pdf book.pdf --cover 1 2 3 --lang eng --workers 8
+uv run scan2pdf book.pdf --cover 1 2 3 --lang eng --workers 8
 
 # 降低 DPI 以加快处理速度
-python -m scan2pdf book.pdf --dpi 200
+uv run scan2pdf book.pdf --dpi 200
 
 # 详细输出
-python -m scan2pdf book.pdf -v      # INFO 级别
-python -m scan2pdf book.pdf -vv     # DEBUG 级别
+uv run scan2pdf book.pdf -v      # INFO 级别
+uv run scan2pdf book.pdf -vv     # DEBUG 级别
 
 # 保留临时文件以便调试
-python -m scan2pdf book.pdf --keep-temp
+uv run scan2pdf book.pdf --keep-temp
 ```
 
 ### 全部选项
@@ -127,13 +128,10 @@ python -m scan2pdf book.pdf --keep-temp
 ### 环境搭建
 
 ```bash
-# 克隆并以可编辑模式安装
+# 克隆并安装所有依赖（包括开发工具）
 git clone https://github.com/chen3feng/scan2pdf.git
 cd scan2pdf
-pip install -e ".[fast]"
-
-# 安装开发依赖
-pip install ruff pytest
+uv sync
 ```
 
 ### 代码风格
@@ -142,29 +140,29 @@ pip install ruff pytest
 
 ```bash
 # 检查 lint 错误
-ruff check .
+uv run ruff check .
 
 # 自动修复 lint 错误
-ruff check . --fix
+uv run ruff check . --fix
 
 # 检查代码格式
-ruff format --check .
+uv run ruff format --check .
 
 # 自动格式化代码
-ruff format .
+uv run ruff format .
 ```
 
 ### 运行测试
 
 ```bash
 # 运行全部测试
-pytest tests/ -v
+uv run pytest tests/ -v
 
 # 运行指定测试文件
-pytest tests/test_text_cleaner.py -v
+uv run pytest tests/test_text_cleaner.py -v
 
 # 简短错误输出
-pytest tests/ --tb=short
+uv run pytest tests/ --tb=short
 ```
 
 ### 持续集成
