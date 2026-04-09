@@ -331,9 +331,7 @@ def _clean_paragraph_words(para: Paragraph) -> Paragraph | None:
                 continue
             good_words.append(w)
         if good_words:
-            cleaned_lines.append(
-                Line(words=good_words, bbox=ln.bbox, font_size_pt=ln.font_size_pt)
-            )
+            cleaned_lines.append(Line(words=good_words, bbox=ln.bbox, font_size_pt=ln.font_size_pt))
 
     if not cleaned_lines:
         return None
@@ -378,10 +376,7 @@ def filter_ocr_noise(areas: list[ContentArea]) -> list[ContentArea]:
             # lower confidence threshold – colored text (e.g. red subtitles)
             # often gets low confidence scores but is still valid.
             # QR-code / icon artifacts almost never produce clean alphabetic words.
-            all_alpha = all(
-                w.text.isalpha() and len(w.text) >= 2
-                for ln in para.lines for w in ln.words
-            )
+            all_alpha = all(w.text.isalpha() and len(w.text) >= 2 for ln in para.lines for w in ln.words)
 
             # Skip very low confidence paragraphs (QR codes, etc.)
             # but exempt all-alphabetic paragraphs (likely real colored text)

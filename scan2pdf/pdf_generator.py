@@ -186,7 +186,13 @@ def _fit_heading_font_size(
     """
     from reportlab.lib.utils import simpleSplit
 
-    log.debug("_fit_heading_font_size: desired=%.1f font=%s width=%.1f text='%s'", desired_fs, font_name, avail_width, text[:60])
+    log.debug(
+        "_fit_heading_font_size: desired=%.1f font=%s width=%.1f text='%s'",
+        desired_fs,
+        font_name,
+        avail_width,
+        text[:60],
+    )
     fs = desired_fs
     while fs >= min_fs:
         parts = simpleSplit(text, font_name, fs, avail_width)
@@ -194,13 +200,16 @@ def _fit_heading_font_size(
             if fs < desired_fs:
                 log.debug(
                     "Heading font shrunk %.1f -> %.1f to fit: '%s'",
-                    desired_fs, fs, text[:60],
+                    desired_fs,
+                    fs,
+                    text[:60],
                 )
             return fs
         fs -= 0.5
     log.debug(
         "Heading font at minimum %.1f for: '%s'",
-        min_fs, text[:60],
+        min_fs,
+        text[:60],
     )
     return min_fs
 
@@ -312,11 +321,11 @@ def _build_story_styled(
         elif is_large:
             # Section heading - scale proportionally
             scaled_fs = render_body * (fs / detected_body) if fs > 0 and detected_body > 0 else render_body * 1.3
-            font_name = "Times-Bold" if (sp.is_bold or True) else "Times-Roman"
+            font_name = "Times-Bold"
             scaled_fs = _fit_heading_font_size(text, scaled_fs, font_name, _avail_w)
             style = _make_style_for_size(
                 scaled_fs,
-                is_bold=sp.is_bold or True,
+                is_bold=True,
                 is_centered=sp.is_centered,
                 extra_spacing=extra_spacing,
                 base_styles=base_styles,

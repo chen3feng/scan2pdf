@@ -212,7 +212,11 @@ def detect_word_color(
     color_ratio = len(colored_pixels) / fg_count
     log.debug(
         "word bbox=%s fg=%d colored=%d ratio=%.2f (threshold=%.2f)",
-        bbox, fg_count, len(colored_pixels), color_ratio, COLOR_PIXEL_RATIO,
+        bbox,
+        fg_count,
+        len(colored_pixels),
+        color_ratio,
+        COLOR_PIXEL_RATIO,
     )
     if color_ratio < COLOR_PIXEL_RATIO:
         return BLACK
@@ -330,7 +334,11 @@ def detect_colors_for_page(
             n_color = sum(1 for c in word_colors if c is not None and c != BLACK)
             log.debug(
                 "para[%d] -> BLACK (words: %d total, %d colored, %d black, %d none)",
-                pi, len(word_colors), n_color, n_black, n_none,
+                pi,
+                len(word_colors),
+                n_color,
+                n_black,
+                n_none,
             )
         colors.append(para_color)
 

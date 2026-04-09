@@ -138,7 +138,10 @@ def _process_text_page(
                 colored_count += 1
                 log.debug(
                     "Page %d: colored paragraph (%.1fpt): '%s' -> %s",
-                    page_num, sp.font_size_pt, sp.text[:60], color,
+                    page_num,
+                    sp.font_size_pt,
+                    sp.text[:60],
+                    color,
                 )
         if colored_count:
             log.info("Page %d: %d/%d paragraphs detected as colored", page_num, colored_count, len(styled_paragraphs))
