@@ -230,13 +230,30 @@ def compress_cover_page(
         jpg_path = tmp / "cover.jpg"
         img.save(str(jpg_path), "JPEG", quality=quality, optimize=True)
 
-        # Wrap JPEG into a PDF using Pillow
-        img_for_pdf = Image.open(jpg_path)
-        img_for_pdf.save(
-            str(output_path),
-            "PDF",
-            resolution=72.0,
-        )
+        # Wrap JPEG into a PDF using ReportLab with fixed letter page size
+        # so that cover pages have the same dimensions as text pages.
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.utils import ImageReader
+        from reportlab.pdfgen import canvas
+
+        page_w, page_h = letter  # 612 x 792 points
+        c = canvas.Canvas(str(output_path), pagesize=letter)
+
+        img_reader = ImageReader(str(jpg_path))
+        iw, ih = img_reader.getSize()  # pixels
+
+        # Scale image to fit within the page while preserving aspect ratio
+        scale = min(page_w / iw, page_h / ih)
+        draw_w = iw * scale
+        draw_h = ih * scale
+
+        # Center the image on the page
+        x = (page_w - draw_w) / 2
+        y = (page_h - draw_h) / 2
+
+        c.drawImage(img_reader, x, y, width=draw_w, height=draw_h)
+        c.showPage()
+        c.save()
 
         log.info(f"Cover compressed: {output_path.stat().st_size / 1024:.1f} KB")
 
