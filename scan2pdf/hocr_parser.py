@@ -8,7 +8,6 @@ filtering out headers, footers, and noise.
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from lxml import etree
 
@@ -16,6 +15,7 @@ from lxml import etree
 @dataclass
 class Word:
     """A single recognized word with bounding box and confidence."""
+
     text: str
     bbox: tuple[int, int, int, int]  # x0, y0, x1, y1
     confidence: int = 0
@@ -24,6 +24,7 @@ class Word:
 @dataclass
 class Line:
     """A line of text composed of words."""
+
     words: list[Word] = field(default_factory=list)
     bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
     font_size_pt: float = 0.0  # Estimated font size in points
@@ -40,6 +41,7 @@ class Line:
 @dataclass
 class Paragraph:
     """A paragraph composed of lines."""
+
     lines: list[Line] = field(default_factory=list)
     bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
 
@@ -61,6 +63,7 @@ class Paragraph:
 @dataclass
 class ContentArea:
     """A content area (block) on the page."""
+
     paragraphs: list[Paragraph] = field(default_factory=list)
     bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
     is_photo: bool = False
@@ -73,6 +76,7 @@ class ContentArea:
 @dataclass
 class Page:
     """A parsed hOCR page."""
+
     page_num: int
     width: int
     height: int
@@ -144,10 +148,12 @@ def parse_hocr(hocr_path: Path) -> Page:
 
         if "ocr_photo" in area_class:
             page.has_photo = True
-            page.areas.append(ContentArea(
-                bbox=area_bbox,
-                is_photo=True,
-            ))
+            page.areas.append(
+                ContentArea(
+                    bbox=area_bbox,
+                    is_photo=True,
+                )
+            )
             continue
 
         if "ocr_carea" not in area_class:
@@ -178,11 +184,13 @@ def parse_hocr(hocr_path: Path) -> Page:
                     word_title = word_elem.get("title", "")
                     word_text = (word_elem.text or "").strip()
                     if word_text:
-                        line.words.append(Word(
-                            text=word_text,
-                            bbox=_parse_bbox(word_title),
-                            confidence=_parse_confidence(word_title),
-                        ))
+                        line.words.append(
+                            Word(
+                                text=word_text,
+                                bbox=_parse_bbox(word_title),
+                                confidence=_parse_confidence(word_title),
+                            )
+                        )
 
                 if line.words:
                     paragraph.lines.append(line)
@@ -260,7 +268,4 @@ def _is_header_footer_text(text: str) -> bool:
         return True
 
     # URL + page number on same line
-    if re.search(r"https?://.*\d+/\d+$", text_lower):
-        return True
-
-    return False
+    return bool(re.search(r"https?://.*\d+/\d+$", text_lower))

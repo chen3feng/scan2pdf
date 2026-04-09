@@ -31,9 +31,7 @@ def parse_page_range(spec: str) -> set[int]:
             start = int(start_str.strip())
             end = int(end_str.strip())
             if start > end:
-                raise argparse.ArgumentTypeError(
-                    f"Invalid page range: {part} (start > end)"
-                )
+                raise argparse.ArgumentTypeError(f"Invalid page range: {part} (start > end)")
             pages.update(range(start, end + 1))
         else:
             pages.add(int(part.strip()))
@@ -96,7 +94,8 @@ Examples:
         help="Input scanned PDF file",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=Path,
         default=None,
         help="Output PDF file (default: <input>-text.pdf)",
@@ -133,7 +132,8 @@ Examples:
         help="Max width in pixels for cover images (default: 1200)",
     )
     parser.add_argument(
-        "-n", "--pages",
+        "-n",
+        "--pages",
         type=str,
         default=None,
         help="Page range to process, e.g. '1-10', '1,2,5-20' (default: all)",
@@ -156,7 +156,8 @@ Examples:
         help="Path to tesseract executable (default: tesseract)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="count",
         default=0,
         help="Increase verbosity (-v for INFO, -vv for DEBUG)",

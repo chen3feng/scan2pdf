@@ -8,19 +8,19 @@ import logging
 import os
 import shutil
 import tempfile
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
-from .pdf_splitter import (
-    get_page_count,
-    extract_page_as_image,
-    compress_cover_page,
-)
+from .hocr_parser import filter_header_footer, parse_hocr
 from .ocr_engine import ocr_image_to_hocr
-from .hocr_parser import parse_hocr, filter_header_footer
-from .text_cleaner import clean_text, merge_lines_to_paragraphs
-from .pdf_generator import text_to_pdf_page, texts_to_pdf, StyledParagraph
+from .pdf_generator import StyledParagraph, text_to_pdf_page
 from .pdf_merger import merge_pdfs
+from .pdf_splitter import (
+    compress_cover_page,
+    extract_page_as_image,
+    get_page_count,
+)
+from .text_cleaner import clean_text, merge_lines_to_paragraphs
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ def default_workers() -> int:
         # Try psutil first for an accurate count; fall back to halving.
         try:
             import psutil
+
             count = psutil.cpu_count(logical=False) or count
         except ImportError:
             count = max(1, count // 2)
@@ -87,9 +88,7 @@ def _process_text_page(
     extract_page_as_image(pdf_path, page_num, img_path, dpi=config.dpi)
 
     # Step 2: OCR the image
-    hocr_content = ocr_image_to_hocr(
-        img_path, lang=config.ocr_lang, tesseract_cmd=config.tesseract_cmd
-    )
+    hocr_content = ocr_image_to_hocr(img_path, lang=config.ocr_lang, tesseract_cmd=config.tesseract_cmd)
 
     # Save hOCR for parsing
     hocr_path = tmp_dir / f"page-{page_num:04d}.hocr"
@@ -117,10 +116,12 @@ def _process_text_page(
             # Build styled paragraph with font size info
             para_text = " ".join(para_lines)
             font_size = para.estimated_font_size
-            styled_paragraphs.append(StyledParagraph(
-                text=para_text,
-                font_size_pt=font_size,
-            ))
+            styled_paragraphs.append(
+                StyledParagraph(
+                    text=para_text,
+                    font_size_pt=font_size,
+                )
+            )
 
     # Step 5: Clean text (both plain and styled)
     raw_text = "\n".join(lines)
@@ -202,7 +203,9 @@ def convert_pdf(
             log.info(f"Processing cover page {cover_num}...")
             cover_pdf = tmp_dir / f"page-{cover_num:04d}.pdf"
             compress_cover_page(
-                input_path, cover_num, cover_pdf,
+                input_path,
+                cover_num,
+                cover_pdf,
                 quality=config.cover_quality,
                 max_width=config.cover_max_width,
             )
@@ -210,10 +213,7 @@ def convert_pdf(
             log.info(f"Cover page {cover_num} done ({cover_pdf.stat().st_size / 1024:.1f} KB)")
 
         # Process text pages (selected pages minus cover pages)
-        text_pages = [
-            p for p in selected_pages
-            if p not in config.cover_pages
-        ]
+        text_pages = [p for p in selected_pages if p not in config.cover_pages]
 
         completed = len(page_pdfs)
 
@@ -224,7 +224,10 @@ def convert_pdf(
             for page_num in text_pages:
                 future = executor.submit(
                     _process_text_page,
-                    input_path, page_num, tmp_dir, config,
+                    input_path,
+                    page_num,
+                    tmp_dir,
+                    config,
                 )
                 futures[future] = page_num
 
@@ -236,26 +239,17 @@ def convert_pdf(
                     completed += 1
 
                     if progress_callback:
-                        progress_callback(
-                            completed, effective_total,
-                            f"Page {num}/{effective_total} done"
-                        )
+                        progress_callback(completed, effective_total, f"Page {num}/{effective_total} done")
                 except Exception as e:
                     log.error(f"Failed to process page {page_num}: {e}")
                     failed_pages.append(page_num)
                     completed += 1
                     if progress_callback:
-                        progress_callback(
-                            completed, effective_total,
-                            f"Page {page_num} FAILED, skipping"
-                        )
+                        progress_callback(completed, effective_total, f"Page {page_num} FAILED, skipping")
 
         if failed_pages:
             failed_pages.sort()
-            log.warning(
-                f"{len(failed_pages)} page(s) failed and were skipped: "
-                f"{failed_pages}"
-            )
+            log.warning(f"{len(failed_pages)} page(s) failed and were skipped: {failed_pages}")
 
         # Merge all pages in order
         log.info("Merging all pages...")
@@ -265,10 +259,7 @@ def convert_pdf(
         ordered_pdfs = [page_pdfs[i] for i in sorted(page_pdfs.keys())]
         merge_pdfs(ordered_pdfs, output_path)
 
-        log.info(
-            f"Output: {output_path} "
-            f"({output_path.stat().st_size / 1024 / 1024:.2f} MB)"
-        )
+        log.info(f"Output: {output_path} ({output_path.stat().st_size / 1024 / 1024:.2f} MB)")
 
     finally:
         if not config.keep_temp:

@@ -37,8 +37,5 @@ def merge_pdfs(pdf_paths: list[Path], output_path: Path) -> Path:
     with open(output_path, "wb") as f:
         writer.write(f)
 
-    log.info(
-        f"Merged {len(pdf_paths)} PDFs -> {output_path} "
-        f"({output_path.stat().st_size / 1024 / 1024:.2f} MB)"
-    )
+    log.info(f"Merged {len(pdf_paths)} PDFs -> {output_path} ({output_path.stat().st_size / 1024 / 1024:.2f} MB)")
     return output_path

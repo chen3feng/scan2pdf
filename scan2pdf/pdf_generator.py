@@ -9,19 +9,18 @@ Supports font-size-aware rendering when structured paragraph data is provided.
 import logging
 import re
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
 
-from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import inch, mm
+from reportlab.lib.units import inch
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, PageBreak, KeepTogether,
-    FrameBreak, BaseDocTemplate, Frame, PageTemplate,
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
 )
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 
 log = logging.getLogger(__name__)
 
@@ -29,10 +28,12 @@ log = logging.getLogger(__name__)
 @dataclass
 class StyledParagraph:
     """A paragraph with associated font size from OCR analysis."""
+
     text: str
     font_size_pt: float = 0.0  # 0 means use default
     is_bold: bool = False
     is_centered: bool = False
+
 
 # Page dimensions
 PAGE_WIDTH, PAGE_HEIGHT = letter  # 612 x 792 points
@@ -169,9 +170,7 @@ def _detect_chapter(text: str) -> bool:
     if re.match(r"^(CHAPTER|Chapter)\s+", text_stripped):
         return True
     # Roman numeral only lines (for chapter dividers)
-    if re.match(r"^[IVXLC]+\.?$", text_stripped):
-        return True
-    return False
+    return bool(re.match(r"^[IVXLC]+\.?$", text_stripped))
 
 
 def _build_story(text: str, styles: dict) -> list:
@@ -245,25 +244,25 @@ def _build_story_styled(
 
         if is_chapter or (is_large and sp.is_centered):
             # Scale heading font size proportionally to the body size
-            if fs > 0 and detected_body > 0:
-                scaled_fs = render_body * (fs / detected_body)
-            else:
-                scaled_fs = render_body * 1.6
+            scaled_fs = render_body * (fs / detected_body) if fs > 0 and detected_body > 0 else render_body * 1.6
             style = _make_style_for_size(
-                scaled_fs, is_bold=True, is_centered=True,
-                extra_spacing=extra_spacing, base_styles=base_styles,
+                scaled_fs,
+                is_bold=True,
+                is_centered=True,
+                extra_spacing=extra_spacing,
+                base_styles=base_styles,
             )
             story.append(Paragraph(escaped, style))
             after_chapter = True
         elif is_large:
             # Section heading - scale proportionally
-            if fs > 0 and detected_body > 0:
-                scaled_fs = render_body * (fs / detected_body)
-            else:
-                scaled_fs = render_body * 1.3
+            scaled_fs = render_body * (fs / detected_body) if fs > 0 and detected_body > 0 else render_body * 1.3
             style = _make_style_for_size(
-                scaled_fs, is_bold=sp.is_bold or True, is_centered=sp.is_centered,
-                extra_spacing=extra_spacing, base_styles=base_styles,
+                scaled_fs,
+                is_bold=sp.is_bold or True,
+                is_centered=sp.is_centered,
+                extra_spacing=extra_spacing,
+                base_styles=base_styles,
             )
             story.append(Paragraph(escaped, style))
             after_chapter = True
@@ -334,12 +333,10 @@ def _build_story_for_page(
         if content_height <= avail_height:
             break  # Fits!
         fs -= _SHRINK_STEP
-        log.debug(f"Content overflows ({content_height:.0f} > {avail_height:.0f}), "
-                  f"shrinking body font to {fs:.1f}pt")
+        log.debug(f"Content overflows ({content_height:.0f} > {avail_height:.0f}), shrinking body font to {fs:.1f}pt")
     else:
         # Even at minimum size it overflows – use minimum and accept overflow
-        log.warning(f"Content still overflows at {_MIN_FONT_SIZE}pt; "
-                    f"page may not fit perfectly.")
+        log.warning(f"Content still overflows at {_MIN_FONT_SIZE}pt; page may not fit perfectly.")
 
     if fs < DEFAULT_BODY_SIZE:
         log.info(f"Body font shrunk to {fs:.1f}pt to fit page")
@@ -360,7 +357,8 @@ def _build_story_for_page(
             )
         else:
             adjusted_styles = _create_styles(
-                extra_spacing=extra_per_para, body_font_size=fs,
+                extra_spacing=extra_per_para,
+                body_font_size=fs,
             )
             story = _build_story(text, adjusted_styles)
 
@@ -391,7 +389,10 @@ def text_to_pdf_page(
     avail_height = PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM
 
     story = _build_story_for_page(
-        text, styled_paragraphs, avail_width, avail_height,
+        text,
+        styled_paragraphs,
+        avail_width,
+        avail_height,
     )
 
     if not story:
@@ -443,7 +444,10 @@ def texts_to_pdf(page_texts: list[str], output_path: Path) -> Path:
             story.append(PageBreak())
 
         page_story = _build_story_for_page(
-            text, None, avail_width, avail_height,
+            text,
+            None,
+            avail_width,
+            avail_height,
         )
 
         if not page_story:

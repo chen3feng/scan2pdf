@@ -41,8 +41,7 @@ def extract_page_as_pdf(pdf_path: Path, page_num: int, output_path: Path) -> Pat
     return output_path
 
 
-def _render_single_page_pdf(single_page_pdf: Path, output_path: Path,
-                            dpi: int = 300) -> Path:
+def _render_single_page_pdf(single_page_pdf: Path, output_path: Path, dpi: int = 300) -> Path:
     """
     Render a single-page PDF to a PNG image.
 
@@ -68,7 +67,10 @@ def _render_single_page_pdf(single_page_pdf: Path, output_path: Path,
         prefix = str(output_path.with_suffix(""))
         subprocess.run(
             [
-                "pdftoppm", "-png", "-r", str(dpi),
+                "pdftoppm",
+                "-png",
+                "-r",
+                str(dpi),
                 "-singlefile",  # output just <prefix>.png, no page suffix
                 str(single_page_pdf),
                 prefix,
@@ -85,16 +87,17 @@ def _render_single_page_pdf(single_page_pdf: Path, output_path: Path,
     except FileNotFoundError:
         errors.append("pdftoppm (poppler) not found")
     except subprocess.CalledProcessError as e:
-        errors.append(
-            f"pdftoppm: {e.stderr.decode('utf-8', errors='replace')[:200] if e.stderr else e}"
-        )
+        errors.append(f"pdftoppm: {e.stderr.decode('utf-8', errors='replace')[:200] if e.stderr else e}")
 
     # Try Ghostscript
     for gs_cmd in ["gswin64c", "gswin32c", "gs"]:
         try:
             subprocess.run(
                 [
-                    gs_cmd, "-dNOPAUSE", "-dBATCH", "-dSAFER",
+                    gs_cmd,
+                    "-dNOPAUSE",
+                    "-dBATCH",
+                    "-dSAFER",
                     "-sDEVICE=png16m",
                     f"-r{dpi}",
                     f"-sOutputFile={output_path}",
@@ -114,7 +117,9 @@ def _render_single_page_pdf(single_page_pdf: Path, output_path: Path,
     try:
         subprocess.run(
             [
-                "magick", "-density", str(dpi),
+                "magick",
+                "-density",
+                str(dpi),
                 str(single_page_pdf),
                 str(output_path),
             ],
@@ -129,14 +134,15 @@ def _render_single_page_pdf(single_page_pdf: Path, output_path: Path,
         errors.append(f"magick: {e.stderr[:200] if e.stderr else e}")
 
     raise RuntimeError(
-        f"Cannot render PDF page to image. Tried backends:\n"
+        "Cannot render PDF page to image. Tried backends:\n"
         + "\n".join(f"  - {err}" for err in errors)
         + "\nInstall one of: pdf2image+poppler, Ghostscript, or ImageMagick."
     )
 
 
-def extract_page_as_image(pdf_path: Path, page_num: int, output_path: Path,
-                          dpi: int = 300, max_retries: int = 3) -> Path:
+def extract_page_as_image(
+    pdf_path: Path, page_num: int, output_path: Path, dpi: int = 300, max_retries: int = 3
+) -> Path:
     """
     Render a single PDF page as a PNG image.
 
@@ -171,22 +177,19 @@ def extract_page_as_image(pdf_path: Path, page_num: int, output_path: Path,
                 if attempt < max_retries:
                     wait = attempt * 2
                     log.warning(
-                        f"Page {page_num}: render attempt {attempt}/{max_retries} "
-                        f"failed ({e}), retrying in {wait}s..."
+                        f"Page {page_num}: render attempt {attempt}/{max_retries} failed ({e}), retrying in {wait}s..."
                     )
                     time.sleep(wait)
 
-        raise RuntimeError(
-            f"Failed to render page {page_num} after {max_retries} attempts: "
-            f"{last_error}"
-        )
+        raise RuntimeError(f"Failed to render page {page_num} after {max_retries} attempts: {last_error}")
     finally:
         # Clean up temp single-page PDF
         single_pdf.unlink(missing_ok=True)
 
 
-def compress_cover_page(pdf_path: Path, page_num: int, output_path: Path,
-                        quality: int = 60, max_width: int = 1200) -> Path:
+def compress_cover_page(
+    pdf_path: Path, page_num: int, output_path: Path, quality: int = 60, max_width: int = 1200
+) -> Path:
     """
     Extract cover page and compress its image.
 
@@ -228,14 +231,10 @@ def compress_cover_page(pdf_path: Path, page_num: int, output_path: Path,
         img.save(str(jpg_path), "JPEG", quality=quality, optimize=True)
 
         # Wrap JPEG into a PDF using Pillow
-        # Calculate page size in points (72 dpi)
-        # Original page is Letter size (8.5 x 11 inches)
-        page_w_pt = 612  # 8.5 * 72
-        page_h_pt = 792  # 11 * 72
-
         img_for_pdf = Image.open(jpg_path)
         img_for_pdf.save(
-            str(output_path), "PDF",
+            str(output_path),
+            "PDF",
             resolution=72.0,
         )
 
