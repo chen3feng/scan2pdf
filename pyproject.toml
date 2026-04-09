@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "scan2pdf"
+version = "0.1.0"
+description = "Convert scanned PDF books to compact text PDFs with OCR"
+requires-python = ">=3.10"
+dependencies = [
+    "pikepdf>=8.0",
+    "pypdf>=3.0",
+    "reportlab>=4.0",
+    "lxml>=4.9",
+    "Pillow>=9.0",
+]
+
+[project.optional-dependencies]
+fast = [
+    "pdf2image>=1.16",  # faster page rendering via poppler
+]
+
+[project.scripts]
+scan2pdf = "scan2pdf.cli:main"

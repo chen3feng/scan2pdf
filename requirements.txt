@@ -1,0 +1,9 @@
+# Core dependencies
+pikepdf>=8.0
+pypdf>=3.0
+reportlab>=4.0
+lxml>=4.9
+Pillow>=9.0
+
+# Optional: faster page rendering (requires poppler installed)
+# pdf2image>=1.16
