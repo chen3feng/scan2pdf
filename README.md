@@ -49,6 +49,7 @@ Both tools use Tesseract OCR, but they serve **fundamentally different purposes*
 ## Prerequisites
 
 - **Python** ≥ 3.10
+- **uv** — [Installation guide](https://docs.astral.sh/uv/getting-started/installation/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - **Tesseract OCR** — [Installation guide](https://github.com/tesseract-ocr/tesseract)
 - **Poppler** (for `pdftoppm`) — [Windows](https://github.com/oschwartz10612/poppler-windows/releases), [macOS](https://formulae.brew.sh/formula/poppler) (`brew install poppler`), [Linux](https://poppler.freedesktop.org/) (`apt install poppler-utils`)
 
@@ -59,11 +60,11 @@ Both tools use Tesseract OCR, but they serve **fundamentally different purposes*
 git clone <repo-url>
 cd scan2pdf
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (including dev tools)
+uv sync
 
-# Or install as a package
-pip install .
+# Or install with optional fast rendering
+uv sync --extra fast
 ```
 
 ## Usage
@@ -72,37 +73,37 @@ pip install .
 
 ```bash
 # Convert entire book (output: book-text.pdf)
-python -m scan2pdf book.pdf
+uv run scan2pdf book.pdf
 
 # Specify output file
-python -m scan2pdf book.pdf -o output.pdf
+uv run scan2pdf book.pdf -o output.pdf
 ```
 
 ### Quick Testing
 
 ```bash
 # Convert only pages 3 to 10
-python -m scan2pdf book.pdf -n 3-10
+uv run scan2pdf book.pdf -n 3-10
 
 # Convert specific pages
-python -m scan2pdf book.pdf -n 1,5,10-20
+uv run scan2pdf book.pdf -n 1,5,10-20
 ```
 
 ### Advanced Options
 
 ```bash
 # Custom cover pages, language, and workers
-python -m scan2pdf book.pdf --cover 1 2 3 --lang eng --workers 8
+uv run scan2pdf book.pdf --cover 1 2 3 --lang eng --workers 8
 
 # Lower DPI for faster processing
-python -m scan2pdf book.pdf --dpi 200
+uv run scan2pdf book.pdf --dpi 200
 
 # Verbose output
-python -m scan2pdf book.pdf -v      # INFO level
-python -m scan2pdf book.pdf -vv     # DEBUG level
+uv run scan2pdf book.pdf -v      # INFO level
+uv run scan2pdf book.pdf -vv     # DEBUG level
 
 # Keep temporary files for debugging
-python -m scan2pdf book.pdf --keep-temp
+uv run scan2pdf book.pdf --keep-temp
 ```
 
 ### All Options
@@ -127,13 +128,10 @@ python -m scan2pdf book.pdf --keep-temp
 ### Setup
 
 ```bash
-# Clone and install in editable mode
+# Clone and install in editable mode with all dev dependencies
 git clone https://github.com/chen3feng/scan2pdf.git
 cd scan2pdf
-pip install -e ".[fast]"
-
-# Install dev dependencies
-pip install ruff pytest
+uv sync
 ```
 
 ### Code Style
@@ -142,29 +140,29 @@ This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formattin
 
 ```bash
 # Check for lint errors
-ruff check .
+uv run ruff check .
 
 # Auto-fix lint errors
-ruff check . --fix
+uv run ruff check . --fix
 
 # Check formatting
-ruff format --check .
+uv run ruff format --check .
 
 # Auto-format code
-ruff format .
+uv run ruff format .
 ```
 
 ### Running Tests
 
 ```bash
 # Run all tests
-pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run a specific test file
-pytest tests/test_text_cleaner.py -v
+uv run pytest tests/test_text_cleaner.py -v
 
 # Run tests with short traceback
-pytest tests/ --tb=short
+uv run pytest tests/ --tb=short
 ```
 
 ### CI
