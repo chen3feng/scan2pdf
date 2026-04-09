@@ -43,15 +43,15 @@ def ocr_image_to_hocr(image_path: Path, lang: str = "eng", tesseract_cmd: str = 
         result = subprocess.run(
             cmd,
             capture_output=True,
-            text=True,
         )
 
+        stderr_text = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
         if result.returncode != 0:
-            log.warning(f"Tesseract stderr: {result.stderr}")
+            log.warning(f"Tesseract stderr: {stderr_text}")
 
         hocr_file = output_base.with_suffix(".hocr")
         if not hocr_file.exists():
-            raise RuntimeError(f"Tesseract failed to produce hOCR output.\nstderr: {result.stderr}")
+            raise RuntimeError(f"Tesseract failed to produce hOCR output.\nstderr: {stderr_text}")
 
         return hocr_file.read_text(encoding="utf-8")
 
@@ -78,9 +78,10 @@ def ocr_image_to_text(image_path: Path, lang: str = "eng", tesseract_cmd: str = 
         "300",
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True)
 
+    stderr_text = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
     if result.returncode != 0:
-        log.warning(f"Tesseract stderr: {result.stderr}")
+        log.warning(f"Tesseract stderr: {stderr_text}")
 
-    return result.stdout
+    return result.stdout.decode("utf-8", errors="replace")

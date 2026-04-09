@@ -11,7 +11,8 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from .hocr_parser import filter_header_footer, parse_hocr
+from .color_detector import detect_colors_for_page
+from .hocr_parser import filter_header_footer, filter_ocr_noise, parse_hocr
 from .ocr_engine import ocr_image_to_hocr
 from .pdf_generator import StyledParagraph, text_to_pdf_page
 from .pdf_merger import merge_pdfs
@@ -97,10 +98,12 @@ def _process_text_page(
     # Step 3: Parse hOCR
     page = parse_hocr(hocr_path)
 
-    # Step 4: Filter headers/footers and extract structured paragraphs
+    # Step 4: Filter headers/footers and OCR noise, extract structured paragraphs
     filtered_areas = filter_header_footer(page)
+    filtered_areas = filter_ocr_noise(filtered_areas)
     lines = []
     styled_paragraphs = []
+    paragraphs_with_bboxes = []
 
     for area in filtered_areas:
         if area.is_photo:
@@ -122,6 +125,25 @@ def _process_text_page(
                     font_size_pt=font_size,
                 )
             )
+            # Collect word bboxes for color detection
+            paragraphs_with_bboxes.append({"word_bboxes": para.word_bboxes})
+
+    # Step 4b: Detect text colors from the page image
+    try:
+        para_colors = detect_colors_for_page(img_path, paragraphs_with_bboxes)
+        colored_count = 0
+        for sp, color in zip(styled_paragraphs, para_colors, strict=False):
+            if color != (0, 0, 0):
+                sp.color = color
+                colored_count += 1
+                log.debug(
+                    "Page %d: colored paragraph (%.1fpt): '%s' -> %s",
+                    page_num, sp.font_size_pt, sp.text[:60], color,
+                )
+        if colored_count:
+            log.info("Page %d: %d/%d paragraphs detected as colored", page_num, colored_count, len(styled_paragraphs))
+    except Exception:
+        log.debug(f"Color detection failed for page {page_num}, using default black", exc_info=True)
 
     # Step 5: Clean text (both plain and styled)
     raw_text = "\n".join(lines)

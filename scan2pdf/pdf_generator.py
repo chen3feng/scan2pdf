@@ -33,6 +33,7 @@ class StyledParagraph:
     font_size_pt: float = 0.0  # 0 means use default
     is_bold: bool = False
     is_centered: bool = False
+    color: tuple[int, int, int] | None = None  # RGB text color (None = default black)
 
 
 # Page dimensions
@@ -50,7 +51,7 @@ DEFAULT_BODY_SIZE = 11.0
 HEADING_SIZE_RATIO = 1.3
 
 
-def _create_styles(extra_spacing: float = 0.0, body_font_size: float = 0.0) -> dict:
+def _create_styles(extra_spacing: float = 0.0, body_font_size: float = 0.0, text_color: str | None = None) -> dict:
     """
     Create paragraph styles for the book layout.
 
@@ -71,7 +72,7 @@ def _create_styles(extra_spacing: float = 0.0, body_font_size: float = 0.0) -> d
         fontSize=fs,
         leading=leading,
         alignment=TA_JUSTIFY,
-        firstLineIndent=20,
+        firstLineIndent=0,
         spaceBefore=0,
         spaceAfter=4 + extra_spacing,
     )
@@ -92,7 +93,7 @@ def _create_styles(extra_spacing: float = 0.0, body_font_size: float = 0.0) -> d
         alignment=TA_CENTER,
         spaceBefore=36 + extra_spacing,
         spaceAfter=24 + extra_spacing,
-        textColor="#333333",
+        textColor=text_color or "#333333",
     )
 
     section_style = ParagraphStyle(
@@ -120,6 +121,7 @@ def _make_style_for_size(
     is_centered: bool = False,
     extra_spacing: float = 0.0,
     base_styles: dict | None = None,
+    text_color: str | None = None,
 ) -> ParagraphStyle:
     """
     Create a ParagraphStyle matching the given font size.
@@ -135,23 +137,29 @@ def _make_style_for_size(
 
     font_name = "Times-Bold" if is_bold else "Times-Roman"
     alignment = TA_CENTER if is_centered else TA_JUSTIFY
-    first_indent = 0 if is_centered else 20
+    first_indent = 0
 
     # Larger text gets more space around it
     size_ratio = font_size_pt / DEFAULT_BODY_SIZE
     space_before = max(0, (size_ratio - 1) * 12) if size_ratio > 1.1 else 0
     space_after = 4 * size_ratio + extra_spacing
 
+    style_kwargs = {
+        "parent": base,
+        "fontName": font_name,
+        "fontSize": font_size_pt,
+        "leading": leading,
+        "alignment": alignment,
+        "firstLineIndent": first_indent,
+        "spaceBefore": space_before,
+        "spaceAfter": space_after,
+    }
+    if text_color:
+        style_kwargs["textColor"] = text_color
+
     return ParagraphStyle(
         f"Dynamic_{font_size_pt:.0f}pt",
-        parent=base,
-        fontName=font_name,
-        fontSize=font_size_pt,
-        leading=leading,
-        alignment=alignment,
-        firstLineIndent=first_indent,
-        spaceBefore=space_before,
-        spaceAfter=space_after,
+        **style_kwargs,
     )
 
 
@@ -161,6 +169,40 @@ def _escape_xml(text: str) -> str:
     text = text.replace("<", "&lt;")
     text = text.replace(">", "&gt;")
     return text
+
+
+def _fit_heading_font_size(
+    text: str,
+    desired_fs: float,
+    font_name: str,
+    avail_width: float,
+    min_fs: float = 9.0,
+) -> float:
+    """
+    Shrink heading font size so the text fits on a single line.
+
+    Returns the largest font size <= desired_fs that keeps the text
+    within avail_width.  Never goes below min_fs.
+    """
+    from reportlab.lib.utils import simpleSplit
+
+    log.debug("_fit_heading_font_size: desired=%.1f font=%s width=%.1f text='%s'", desired_fs, font_name, avail_width, text[:60])
+    fs = desired_fs
+    while fs >= min_fs:
+        parts = simpleSplit(text, font_name, fs, avail_width)
+        if len(parts) <= 1:
+            if fs < desired_fs:
+                log.debug(
+                    "Heading font shrunk %.1f -> %.1f to fit: '%s'",
+                    desired_fs, fs, text[:60],
+                )
+            return fs
+        fs -= 0.5
+    log.debug(
+        "Heading font at minimum %.1f for: '%s'",
+        min_fs, text[:60],
+    )
+    return min_fs
 
 
 def _detect_chapter(text: str) -> bool:
@@ -202,6 +244,7 @@ def _build_story_styled(
     styled_paragraphs: list[StyledParagraph],
     extra_spacing: float = 0.0,
     body_font_override: float = 0.0,
+    avail_width: float = 0.0,
 ) -> list:
     """
     Build a list of flowables from StyledParagraph objects.
@@ -229,6 +272,9 @@ def _build_story_styled(
     # Use the override (or default) for rendering; scale headings proportionally
     render_body = body_font_override if body_font_override > 0 else DEFAULT_BODY_SIZE
     base_styles = _create_styles(extra_spacing, body_font_size=render_body)
+    _avail_w = avail_width if avail_width > 0 else (PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT)
+    # SimpleDocTemplate's Frame has default padding of 6pt on each side
+    _avail_w -= 12
 
     for sp in styled_paragraphs:
         text = sp.text.strip()
@@ -238,6 +284,13 @@ def _build_story_styled(
         escaped = _escape_xml(text)
         fs = sp.font_size_pt
 
+        # Convert paragraph color to hex string for ReportLab
+        _color_hex = None
+        if sp.color is not None and sp.color != (0, 0, 0):
+            from .color_detector import rgb_to_hex
+
+            _color_hex = rgb_to_hex(sp.color)
+
         # Detect chapter headings by text pattern OR by large font size
         is_chapter = _detect_chapter(text)
         is_large = fs > detected_body * HEADING_SIZE_RATIO if fs > 0 else False
@@ -245,33 +298,57 @@ def _build_story_styled(
         if is_chapter or (is_large and sp.is_centered):
             # Scale heading font size proportionally to the body size
             scaled_fs = render_body * (fs / detected_body) if fs > 0 and detected_body > 0 else render_body * 1.6
+            scaled_fs = _fit_heading_font_size(text, scaled_fs, "Times-Bold", _avail_w)
             style = _make_style_for_size(
                 scaled_fs,
                 is_bold=True,
                 is_centered=True,
                 extra_spacing=extra_spacing,
                 base_styles=base_styles,
+                text_color=_color_hex,
             )
             story.append(Paragraph(escaped, style))
             after_chapter = True
         elif is_large:
             # Section heading - scale proportionally
             scaled_fs = render_body * (fs / detected_body) if fs > 0 and detected_body > 0 else render_body * 1.3
+            font_name = "Times-Bold" if (sp.is_bold or True) else "Times-Roman"
+            scaled_fs = _fit_heading_font_size(text, scaled_fs, font_name, _avail_w)
             style = _make_style_for_size(
                 scaled_fs,
                 is_bold=sp.is_bold or True,
                 is_centered=sp.is_centered,
                 extra_spacing=extra_spacing,
                 base_styles=base_styles,
+                text_color=_color_hex,
             )
             story.append(Paragraph(escaped, style))
             after_chapter = True
         elif after_chapter:
-            story.append(Paragraph(escaped, base_styles["body_first"]))
+            if _color_hex:
+                style = _make_style_for_size(
+                    render_body,
+                    extra_spacing=extra_spacing,
+                    base_styles=base_styles,
+                    text_color=_color_hex,
+                )
+                style.firstLineIndent = 0
+                story.append(Paragraph(escaped, style))
+            else:
+                story.append(Paragraph(escaped, base_styles["body_first"]))
             after_chapter = False
         else:
-            # Normal body paragraph - use default body style
-            story.append(Paragraph(escaped, base_styles["body"]))
+            # Normal body paragraph - use default body style or colored style
+            if _color_hex:
+                style = _make_style_for_size(
+                    render_body,
+                    extra_spacing=extra_spacing,
+                    base_styles=base_styles,
+                    text_color=_color_hex,
+                )
+                story.append(Paragraph(escaped, style))
+            else:
+                story.append(Paragraph(escaped, base_styles["body"]))
 
     return story
 
@@ -321,7 +398,7 @@ def _build_story_for_page(
     # --- Phase 1: shrink font until content fits one page ---------------
     while fs >= _MIN_FONT_SIZE:
         if use_styled:
-            story = _build_story_styled(styled_paragraphs, body_font_override=fs)
+            story = _build_story_styled(styled_paragraphs, body_font_override=fs, avail_width=avail_width)
         else:
             styles = _create_styles(body_font_size=fs)
             story = _build_story(text, styles)
@@ -354,6 +431,7 @@ def _build_story_for_page(
                 styled_paragraphs,
                 extra_spacing=extra_per_para,
                 body_font_override=fs,
+                avail_width=avail_width,
             )
         else:
             adjusted_styles = _create_styles(
