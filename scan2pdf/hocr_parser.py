@@ -19,6 +19,7 @@ class Word:
     text: str
     bbox: tuple[int, int, int, int]  # x0, y0, x1, y1
     confidence: int = 0
+    color: tuple[int, int, int] | None = None  # RGB foreground color (None = not detected)
 
 
 @dataclass
@@ -44,6 +45,7 @@ class Paragraph:
 
     lines: list[Line] = field(default_factory=list)
     bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
+    color: tuple[int, int, int] | None = None  # RGB foreground color (None = not detected)
 
     @property
     def text(self) -> str:
@@ -58,6 +60,22 @@ class Paragraph:
         sizes.sort()
         mid = len(sizes) // 2
         return sizes[mid] if len(sizes) % 2 else (sizes[mid - 1] + sizes[mid]) / 2
+
+    @property
+    def avg_confidence(self) -> float:
+        """Average OCR confidence of all words in this paragraph."""
+        confs = [w.confidence for ln in self.lines for w in ln.words]
+        return sum(confs) / len(confs) if confs else 0.0
+
+    @property
+    def word_count(self) -> int:
+        """Total number of words in this paragraph."""
+        return sum(len(ln.words) for ln in self.lines)
+
+    @property
+    def word_bboxes(self) -> list[tuple[int, int, int, int]]:
+        """Collect all word bounding boxes in this paragraph."""
+        return [w.bbox for ln in self.lines for w in ln.words]
 
 
 @dataclass
@@ -170,7 +188,11 @@ def parse_hocr(hocr_path: Path) -> Page:
             paragraph = Paragraph(bbox=par_bbox)
 
             for line_elem in par_elem:
-                if line_elem.get("class") != "ocr_line":
+                line_class = line_elem.get("class", "")
+                # Accept ocr_line, ocr_header, ocr_textfloat, ocr_caption etc.
+                if not line_class.startswith("ocr_"):
+                    continue
+                if line_class in ("ocr_par", "ocr_carea", "ocr_page"):
                     continue
 
                 line_bbox = _parse_bbox(line_elem.get("title", ""))
@@ -208,8 +230,9 @@ def filter_header_footer(page: Page, margin_ratio: float = 0.05) -> list[Content
     """
     Filter out header and footer areas from a page.
 
-    Removes content areas that are in the top or bottom margin of the page.
-    Also removes areas that look like page numbers or URLs.
+    Removes content areas that are in the top or bottom margin of the page
+    AND look like header/footer content (page numbers, URLs, dates, etc.).
+    Large content areas (e.g. titles) in the margin zone are preserved.
     """
     if not page.areas:
         return []
@@ -223,18 +246,21 @@ def filter_header_footer(page: Page, margin_ratio: float = 0.05) -> list[Content
             filtered.append(area)
             continue
 
-        # Skip areas entirely in header zone
-        if area.bbox[3] <= top_margin:
-            continue
-
-        # Skip areas entirely in footer zone
-        if area.bbox[1] >= bottom_margin:
-            continue
-
-        # Check if content looks like header/footer noise
         text = area.text.strip()
+
+        # Check if content looks like header/footer noise (regardless of position)
         if _is_header_footer_text(text):
             continue
+
+        in_header_zone = area.bbox[3] <= top_margin
+        in_footer_zone = area.bbox[1] >= bottom_margin
+
+        if in_header_zone or in_footer_zone:
+            # Only filter margin-zone areas that are short/trivial.
+            # Substantial content (multi-word titles, long text) should be kept.
+            word_count = len(text.split())
+            if word_count <= 3:
+                continue
 
         filtered.append(area)
 
@@ -269,3 +295,111 @@ def _is_header_footer_text(text: str) -> bool:
 
     # URL + page number on same line
     return bool(re.search(r"https?://.*\d+/\d+$", text_lower))
+
+
+# Minimum average confidence for a paragraph to be considered valid text
+_MIN_CONFIDENCE = 40
+# Minimum word length for single-word paragraphs to be kept
+_MIN_SINGLE_WORD_LEN = 2
+
+
+def _clean_paragraph_words(para: Paragraph) -> Paragraph | None:
+    """
+    Remove low-confidence or non-alphabetic noise words from a paragraph.
+
+    Icons, QR-code fragments, and other artifacts often appear as single
+    non-alphabetic tokens with very low OCR confidence.  By stripping them
+    at the *word* level we keep valid subtitle words (e.g. "ADD") that
+    share a paragraph with a misrecognised icon (e.g. "@").
+
+    Returns a cleaned Paragraph, or None if nothing useful remains.
+    """
+    cleaned_lines: list[Line] = []
+    for ln in para.lines:
+        good_words = []
+        for w in ln.words:
+            txt = w.text.strip()
+            # Drop empty words
+            if not txt:
+                continue
+            # Drop single non-alphanumeric characters (icon artifacts)
+            if len(txt) == 1 and not txt.isalnum():
+                continue
+            # Drop words with very low confidence that are also short /
+            # non-alphabetic – likely icon or QR-code fragments
+            if w.confidence < _MIN_CONFIDENCE and not txt.isalpha():
+                continue
+            good_words.append(w)
+        if good_words:
+            cleaned_lines.append(Line(words=good_words, bbox=ln.bbox, font_size_pt=ln.font_size_pt))
+
+    if not cleaned_lines:
+        return None
+
+    # Rebuild paragraph with cleaned lines
+    return Paragraph(lines=cleaned_lines, bbox=para.bbox, color=para.color)
+
+
+def filter_ocr_noise(areas: list[ContentArea]) -> list[ContentArea]:
+    """
+    Filter out OCR noise from content areas.
+
+    Operates in two stages:
+    1. Word-level: strip misrecognised icons / QR fragments from each
+       paragraph so that valid words sharing the same paragraph survive.
+    2. Paragraph-level: discard entire paragraphs that are still noisy
+       after word-level cleaning (low confidence, single-char, gibberish).
+    """
+    cleaned = []
+    for area in areas:
+        if area.is_photo:
+            cleaned.append(area)
+            continue
+
+        good_paragraphs = []
+        for para in area.paragraphs:
+            # --- Stage 1: word-level cleaning ---
+            para = _clean_paragraph_words(para)
+            if para is None:
+                continue
+
+            text = para.text.strip()
+            conf = para.avg_confidence
+
+            # --- Stage 2: paragraph-level checks ---
+
+            # Skip empty paragraphs
+            if not text:
+                continue
+
+            # For paragraphs where all words are purely alphabetic, use a
+            # lower confidence threshold – colored text (e.g. red subtitles)
+            # often gets low confidence scores but is still valid.
+            # QR-code / icon artifacts almost never produce clean alphabetic words.
+            all_alpha = all(w.text.isalpha() and len(w.text) >= 2 for ln in para.lines for w in ln.words)
+
+            # Skip very low confidence paragraphs (QR codes, etc.)
+            # but exempt all-alphabetic paragraphs (likely real colored text)
+            if not all_alpha and conf < _MIN_CONFIDENCE:
+                continue
+
+            # Skip single-character paragraphs (OCR artifacts)
+            if len(text) < _MIN_SINGLE_WORD_LEN:
+                continue
+
+            # Skip paragraphs where most characters are non-alphanumeric noise
+            alnum = sum(1 for c in text if c.isalnum())
+            if len(text) > 3 and alnum / len(text) < 0.4:
+                continue
+
+            good_paragraphs.append(para)
+
+        if good_paragraphs:
+            new_area = ContentArea(
+                bbox=area.bbox,
+                paragraphs=good_paragraphs,
+                is_photo=area.is_photo,
+            )
+            cleaned.append(new_area)
+
+    return cleaned
