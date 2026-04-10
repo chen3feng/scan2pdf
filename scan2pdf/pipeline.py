@@ -12,9 +12,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from .color_detector import detect_colors_for_page
+from .font_manager import get_cjk_fonts, is_cjk_lang
 from .hocr_parser import filter_header_footer, filter_ocr_noise, parse_hocr
 from .ocr_engine import ocr_image_to_hocr
-from .pdf_generator import StyledParagraph, text_to_pdf_page
+from .pdf_generator import StyledParagraph, configure_fonts, text_to_pdf_page
 from .pdf_merger import merge_pdfs
 from .pdf_splitter import (
     compress_cover_page,
@@ -52,18 +53,18 @@ class ConversionConfig:
         cover_pages: list[int] | None = None,
         ocr_lang: str = "eng",
         dpi: int = 300,
-        cover_quality: int = 60,
-        cover_max_width: int = 1200,
+        image_quality: int = 60,
+        image_max_width: int = 1200,
         workers: int | None = None,
         keep_temp: bool = False,
         tesseract_cmd: str = "tesseract",
         page_set: set[int] | None = None,
     ):
-        self.cover_pages = cover_pages or [1]
+        self.cover_pages = cover_pages or []
         self.ocr_lang = ocr_lang
         self.dpi = dpi
-        self.cover_quality = cover_quality
-        self.cover_max_width = cover_max_width
+        self.image_quality = image_quality
+        self.image_max_width = image_max_width
         self.workers = workers if workers is not None else default_workers()
         self.keep_temp = keep_temp
         self.tesseract_cmd = tesseract_cmd
@@ -191,6 +192,11 @@ def convert_pdf(
     if config is None:
         config = ConversionConfig()
 
+    # Configure fonts for CJK languages
+    if is_cjk_lang(config.ocr_lang):
+        regular, bold = get_cjk_fonts()
+        configure_fonts(regular, bold)
+
     input_path = Path(input_path).resolve()
     output_path = Path(output_path).resolve()
 
@@ -231,8 +237,8 @@ def convert_pdf(
                 input_path,
                 cover_num,
                 cover_pdf,
-                quality=config.cover_quality,
-                max_width=config.cover_max_width,
+                quality=config.image_quality,
+                max_width=config.image_max_width,
             )
             page_pdfs[cover_num] = cover_pdf
             log.info(f"Cover page {cover_num} done ({cover_pdf.stat().st_size / 1024:.1f} KB)")

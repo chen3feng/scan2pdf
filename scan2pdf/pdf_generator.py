@@ -24,6 +24,18 @@ from reportlab.platypus import (
 
 log = logging.getLogger(__name__)
 
+# Module-level font names (can be overridden by configure_fonts)
+_FONT_REGULAR = "Times-Roman"
+_FONT_BOLD = "Times-Bold"
+
+
+def configure_fonts(regular: str, bold: str) -> None:
+    """Override the default fonts used for PDF generation."""
+    global _FONT_REGULAR, _FONT_BOLD
+    _FONT_REGULAR = regular
+    _FONT_BOLD = bold
+    log.info("PDF fonts configured: regular=%s, bold=%s", regular, bold)
+
 
 @dataclass
 class StyledParagraph:
@@ -68,7 +80,7 @@ def _create_styles(extra_spacing: float = 0.0, body_font_size: float = 0.0, text
     body_style = ParagraphStyle(
         "BookBody",
         parent=styles["Normal"],
-        fontName="Times-Roman",
+        fontName=_FONT_REGULAR,
         fontSize=fs,
         leading=leading,
         alignment=TA_JUSTIFY,
@@ -87,7 +99,7 @@ def _create_styles(extra_spacing: float = 0.0, body_font_size: float = 0.0, text
     chapter_style = ParagraphStyle(
         "ChapterTitle",
         parent=styles["Heading1"],
-        fontName="Times-Bold",
+        fontName=_FONT_BOLD,
         fontSize=18,
         leading=24,
         alignment=TA_CENTER,
@@ -99,7 +111,7 @@ def _create_styles(extra_spacing: float = 0.0, body_font_size: float = 0.0, text
     section_style = ParagraphStyle(
         "SectionTitle",
         parent=styles["Heading2"],
-        fontName="Times-Bold",
+        fontName=_FONT_BOLD,
         fontSize=14,
         leading=18,
         alignment=TA_LEFT,
@@ -135,7 +147,7 @@ def _make_style_for_size(
     base = base_styles["body"]
     leading = font_size_pt * 1.35  # Comfortable line spacing
 
-    font_name = "Times-Bold" if is_bold else "Times-Roman"
+    font_name = _FONT_BOLD if is_bold else _FONT_REGULAR
     alignment = TA_CENTER if is_centered else TA_JUSTIFY
     first_indent = 0
 
@@ -307,7 +319,7 @@ def _build_story_styled(
         if is_chapter or (is_large and sp.is_centered):
             # Scale heading font size proportionally to the body size
             scaled_fs = render_body * (fs / detected_body) if fs > 0 and detected_body > 0 else render_body * 1.6
-            scaled_fs = _fit_heading_font_size(text, scaled_fs, "Times-Bold", _avail_w)
+            scaled_fs = _fit_heading_font_size(text, scaled_fs, _FONT_BOLD, _avail_w)
             style = _make_style_for_size(
                 scaled_fs,
                 is_bold=True,
@@ -321,7 +333,7 @@ def _build_story_styled(
         elif is_large:
             # Section heading - scale proportionally
             scaled_fs = render_body * (fs / detected_body) if fs > 0 and detected_body > 0 else render_body * 1.3
-            font_name = "Times-Bold"
+            font_name = _FONT_BOLD
             scaled_fs = _fit_heading_font_size(text, scaled_fs, font_name, _avail_w)
             style = _make_style_for_size(
                 scaled_fs,
