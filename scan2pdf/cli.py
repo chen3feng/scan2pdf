@@ -81,8 +81,8 @@ def main():
 Examples:
   python -m scan2pdf book.pdf
   python -m scan2pdf book.pdf -o output.pdf --lang eng
-  python -m scan2pdf book.pdf --cover 1 --workers 8
-  python -m scan2pdf book.pdf --cover 1 2 3 --dpi 200
+  python -m scan2pdf book.pdf --image-pages 1 --workers 8
+  python -m scan2pdf book.pdf --image-pages 1-3 --dpi 200
   python -m scan2pdf book.pdf -n 1-10        # test with pages 1 to 10
   python -m scan2pdf book.pdf -n 1,5,10-20   # specific pages
         """,
@@ -101,11 +101,10 @@ Examples:
         help="Output PDF file (default: <input>-text.pdf)",
     )
     parser.add_argument(
-        "--cover",
-        type=int,
-        nargs="+",
-        default=[1],
-        help="Page numbers to treat as cover/image pages (default: 1)",
+        "--image-pages",
+        type=str,
+        default=None,
+        help="Page numbers to treat as image pages (e.g. '1', '1-3', '1,2,5-10'), default: none",
     )
     parser.add_argument(
         "--lang",
@@ -120,16 +119,16 @@ Examples:
         help="DPI for rendering pages (default: 300)",
     )
     parser.add_argument(
-        "--cover-quality",
+        "--image-quality",
         type=int,
         default=60,
-        help="JPEG quality for cover pages (default: 60)",
+        help="JPEG quality for image pages (default: 60)",
     )
     parser.add_argument(
-        "--cover-max-width",
+        "--image-max-width",
         type=int,
         default=1200,
-        help="Max width in pixels for cover images (default: 1200)",
+        help="Max width in pixels for image pages (default: 1200)",
     )
     parser.add_argument(
         "-n",
@@ -202,12 +201,21 @@ Examples:
             print(f"Error: Invalid page range '{args.pages}': {e}", file=sys.stderr)
             sys.exit(1)
 
+    # Parse image pages range
+    image_page_set = None
+    if args.image_pages is not None:
+        try:
+            image_page_set = sorted(parse_page_range(args.image_pages))
+        except (ValueError, argparse.ArgumentTypeError) as e:
+            print(f"Error: Invalid image page range '{args.image_pages}': {e}", file=sys.stderr)
+            sys.exit(1)
+
     config = ConversionConfig(
-        cover_pages=args.cover,
+        cover_pages=image_page_set,
         ocr_lang=args.lang,
         dpi=args.dpi,
-        cover_quality=args.cover_quality,
-        cover_max_width=args.cover_max_width,
+        image_quality=args.image_quality,
+        image_max_width=args.image_max_width,
         workers=args.workers,
         keep_temp=args.keep_temp,
         tesseract_cmd=args.tesseract,
@@ -218,7 +226,8 @@ Examples:
     print(f"scan2pdf v{__version__}")
     print(f"Input:  {args.input}")
     print(f"Output: {args.output}")
-    print(f"Cover pages: {config.cover_pages}")
+    if config.cover_pages:
+        print(f"Image pages: {format_page_set(set(config.cover_pages))}")
     print(f"OCR language: {config.ocr_lang}")
     print(f"Workers: {config.workers}")
     if config.page_set:

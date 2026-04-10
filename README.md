@@ -93,7 +93,7 @@ uv run scan2pdf book.pdf -n 1,5,10-20
 
 ```bash
 # Custom cover pages, language, and workers
-uv run scan2pdf book.pdf --cover 1 2 3 --lang eng --workers 8
+uv run scan2pdf book.pdf --image-pages 1-3 --lang eng+chi_sim --workers 8
 
 # Lower DPI for faster processing
 uv run scan2pdf book.pdf --dpi 200
@@ -106,6 +106,11 @@ uv run scan2pdf book.pdf -vv     # DEBUG level
 uv run scan2pdf book.pdf --keep-temp
 ```
 
+> **Note:** The `--lang` option supports multiple languages separated by `+` (e.g. `eng+chi_sim`).
+> You may need to install additional Tesseract language packs. See the
+> [Tesseract language data](https://ocrmypdf.readthedocs.io/en/latest/languages.html) page for available languages.
+> On macOS: `brew install tesseract-lang`; on Ubuntu/Debian: `apt install tesseract-ocr-<lang>`.
+
 ### All Options
 
 | Option | Default | Description |
@@ -113,11 +118,11 @@ uv run scan2pdf book.pdf --keep-temp
 | `input` | *(required)* | Input scanned PDF file |
 | `-o, --output` | `<input>-text.pdf` | Output PDF file |
 | `-n, --pages` | all | Page range (e.g. `1-10`, `1,3,5-20`) |
-| `--cover` | `1` | Page numbers to treat as cover/image pages |
+| `--image-pages` | *(none)* | Page numbers to treat as image pages (e.g. `1`, `1-3`, `1,2,5-10`) |
 | `--lang` | `eng` | OCR language |
 | `--dpi` | `300` | DPI for rendering pages |
-| `--cover-quality` | `60` | JPEG quality for cover pages |
-| `--cover-max-width` | `1200` | Max width in pixels for cover images |
+| `--image-quality` | `60` | JPEG quality for image pages |
+| `--image-max-width` | `1200` | Max width in pixels for image pages |
 | `--workers` | `4` | Number of parallel OCR workers |
 | `--tesseract` | `tesseract` | Path to Tesseract executable |
 | `--keep-temp` | off | Keep temporary files for debugging |

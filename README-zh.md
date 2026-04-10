@@ -93,7 +93,7 @@ uv run scan2pdf book.pdf -n 1,5,10-20
 
 ```bash
 # 自定义封面页、语言和并发数
-uv run scan2pdf book.pdf --cover 1 2 3 --lang eng --workers 8
+uv run scan2pdf book.pdf --image-pages 1-3 --lang eng+chi_sim --workers 8
 
 # 降低 DPI 以加快处理速度
 uv run scan2pdf book.pdf --dpi 200
@@ -106,6 +106,11 @@ uv run scan2pdf book.pdf -vv     # DEBUG 级别
 uv run scan2pdf book.pdf --keep-temp
 ```
 
+> **注意：** `--lang` 选项支持以 `+` 分隔多种语言（如 `eng+chi_sim`）。
+> 你可能需要安装额外的 Tesseract 语言包，可用语言列表见
+> [Tesseract 语言数据](https://ocrmypdf.readthedocs.io/en/latest/languages.html) 页面。
+> macOS 上：`brew install tesseract-lang`；Ubuntu/Debian 上：`apt install tesseract-ocr-<lang>`。
+
 ### 全部选项
 
 | 选项 | 默认值 | 说明 |
@@ -113,11 +118,11 @@ uv run scan2pdf book.pdf --keep-temp
 | `input` | *（必填）* | 输入的扫描版 PDF 文件 |
 | `-o, --output` | `<input>-text.pdf` | 输出 PDF 文件 |
 | `-n, --pages` | 全部 | 页码范围（如 `1-10`、`1,3,5-20`） |
-| `--cover` | `1` | 作为封面/图片页处理的页码 |
+| `--image-pages` | *（无）* | 作为图片页处理的页码（如 `1`、`1-3`、`1,2,5-10`） |
 | `--lang` | `eng` | OCR 语言 |
 | `--dpi` | `300` | 页面渲染 DPI |
-| `--cover-quality` | `60` | 封面页 JPEG 质量 |
-| `--cover-max-width` | `1200` | 封面图片最大宽度（像素） |
+| `--image-quality` | `60` | 图片页 JPEG 质量 |
+| `--image-max-width` | `1200` | 图片页最大宽度（像素） |
 | `--workers` | `4` | 并行 OCR 工作线程数 |
 | `--tesseract` | `tesseract` | Tesseract 可执行文件路径 |
 | `--keep-temp` | 关闭 | 保留临时文件以便调试 |
